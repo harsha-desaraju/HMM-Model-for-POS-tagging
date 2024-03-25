@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     hmm_model = TagProbUnkHMM(train_data=train)
     hmm_model.train()
-    tags = hmm_model.predict("They also output confusion matrix and accuracy on the terminal .")
+    tags = hmm_model.predict("The horse raced past the barn fell")
     print(tags)
 
     accu = hmm_model.access_model(test, verbose=True)
