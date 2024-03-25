@@ -2,7 +2,10 @@
 
 import numpy as np
 
+lines = []
+with open("brown-test.txt", 'r') as f:
+    for line in f:
+        if line != '\n':
+            lines.append(line.split())
 
-lst = [0,0,0,0,0]
-
-print(lst.index(max(lst)))
+print(len(lines))

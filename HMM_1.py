@@ -163,7 +163,7 @@ for i in range(len(master_list)):
 with open("brown-test.txt",'r') as file:
     total = 0
     correct = 0
-    for line in tqdm(file):
+    for line in file:
         phrase_list = line.split()
         if phrase_list != []:
             emmi_prob = []                                 
