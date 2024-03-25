@@ -2,6 +2,7 @@
 
                                           # Part-I (Training the model)
 
+from tqdm import tqdm
 
 def word_and_tag(phrase):                               # Function for getting word and tag
     for i in range(len(phrase)-1,0,-1):
@@ -105,6 +106,7 @@ for i in tag_prob:
     tag_prob[i] = tag_prob[i]/tot_tag
                 
 
+print(f"No. of tags: ", len(tag_prob))
 
 
 # This part forms the transition probability matrix
@@ -161,7 +163,7 @@ for i in range(len(master_list)):
 with open("brown-test.txt",'r') as file:
     total = 0
     correct = 0
-    for line in file:
+    for line in tqdm(file):
         phrase_list = line.split()
         if phrase_list != []:
             emmi_prob = []                                 
