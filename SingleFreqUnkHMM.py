@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     hmm_model = SingleFreqUnkHMM(train_data=train)
     hmm_model.train()
-    tags = hmm_model.predict("They also output confusion matrix and accuracy on the terminal .")
+    tags = hmm_model.predict("They also output confusion matrix and accuracy on the terminal.")
     print(tags)
 
     accu = hmm_model.access_model(test)

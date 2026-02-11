@@ -56,7 +56,7 @@ for i in range(53):
 
 # This code block populates master_list and Master_pos_list and tag_prob
 
-with open("brown-train.txt",'r') as file:               
+with open("data/brown-train.txt", 'r') as file:
     for line in file:
         phrase_list = line.split()
         if phrase_list != []:
@@ -160,7 +160,7 @@ for i in range(len(master_list)):
 
 # For a given sentence of the test data, this gives the emmision probability matrix
 
-with open("brown-test.txt",'r') as file:
+with open("data/brown-test.txt", 'r') as file:
     total = 0
     correct = 0
     for line in file:

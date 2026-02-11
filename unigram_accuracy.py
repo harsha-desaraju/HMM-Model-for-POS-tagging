@@ -10,7 +10,7 @@ def word_and_tag(phrase):
 
 tag_list = []
 
-with open("brown.txt",'r') as file:
+with open("data/brown.txt", 'r') as file:
     for line in file:
         phrase_list = line.split()
         if phrase_list != []:
@@ -38,7 +38,7 @@ for i in range(len(tag_list)):
     for j in range(len(tag_list)):
         tag_matrix[i].append(0)
 
-with open("brown-test.txt",'r') as file:
+with open("data/brown-test.txt", 'r') as file:
     for line in file:
         phrase_list = line.split()
         if phrase_list != []:
