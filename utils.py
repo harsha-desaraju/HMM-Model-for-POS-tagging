@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Union
 
-def train_test_split(file_path: str, test_size: Union[float, int] = 0.2, save_files: bool = True):
+def train_test_split(file_path: str, test_size: Union[float, int] = 0.2, save_path: str = None, random_state: int = None):
     """Split the corpus into train and test files"""
 
     corpus = []
@@ -17,20 +17,22 @@ def train_test_split(file_path: str, test_size: Union[float, int] = 0.2, save_fi
     else:
         num_test = test_size
 
-    indices = np.random.permutation(len(corpus))
+    R = np.random.RandomState(seed=random_state)
+
+    indices = R.permutation(len(corpus))
     test_inds = indices[:num_test]
     train_inds = indices[num_test:]
 
     train_corpus = [corpus[i] for i in train_inds]
     test_corpus = [corpus[i] for i in test_inds]
 
-    if save_files:
-        with open("./data/train.txt", 'w') as f:
+    if save_path:
+        with open(f"{save_path}/train.txt", 'w') as f:
              for line in train_corpus:
                  f.write(line+'\n')
 
 
-        with open("./data/test.txt", 'w') as f:
+        with open(f"{save_path}/test.txt", 'w') as f:
             for line in test_corpus:
                 f.write(line+'\n')
 
@@ -39,4 +41,4 @@ def train_test_split(file_path: str, test_size: Union[float, int] = 0.2, save_fi
 
 if __name__ == '__main__':
 
-    train_test_split("./data/brown.txt")
+    train_test_split("./data/brown.txt", save_path="./data", random_state=42)
