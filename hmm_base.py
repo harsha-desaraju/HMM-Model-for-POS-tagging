@@ -136,7 +136,7 @@ class BaseHMM(ABC):
         self._generate_index_map()
         self.calculate_probabilities(train_data)
 
-    def access_model(self, test_data: List[str], verbose=True):
+    def evaluate_model(self, test_data: List[str], verbose=True):
         """
         Accesses the performance of the model
         on test data.
