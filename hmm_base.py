@@ -1,10 +1,8 @@
-
-
 import numpy as np
 from tqdm import tqdm
 from typing import List
+from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field
-
 
 
 class Word(BaseModel):
@@ -21,8 +19,7 @@ class Tag(BaseModel):
     index: int = None
 
 
-
-class BaseHMM:
+class BaseHMM(ABC):
     """
     A base class for implementing Hidden Markov Models
     with different strategies for handling unknown words
@@ -34,16 +31,16 @@ class BaseHMM:
         self.tags = {}
         self.emission_prob = None
         self.transition_prob = None
+        self.num_tags = None
 
     @staticmethod
     def get_word_tag(word_tag: str):
-        lst = word_tag.split('/')
-        word, tag = '/'.join(lst[:-1]), lst[-1]
+        lst = word_tag.split("/")
+        word, tag = "/".join(lst[:-1]), lst[-1]
         return word, tag
 
-
     def extract_vocab_and_tags(self, train_data: List[str]):
-        """ 
+        """
         Extracts the vocabulary and all the possible
         tags from the training data.
         """
@@ -66,15 +63,18 @@ class BaseHMM:
                         self.tags[tag] = Tag(text=tag, count=1, probability=0)
                     num_words += 1
                 num_sentences += 1
-        
+
         # Calculate the probability of each tag
         for tag in self.tags:
-            self.tags[tag].probability = self.tags[tag].count/num_words
+            self.tags[tag].probability = self.tags[tag].count / num_words
 
         # Add start of sentence tag to tags list
         # ----------- Think if the probability of start should be 0 ????????????
-        self.tags['<s>'] = Tag(text='<s>', count=num_sentences, probability=0)
+        self.tags["<s>"] = Tag(text="<s>", count=num_sentences, probability=0)
 
+        self.num_tags = len(self.tags)
+
+    @abstractmethod
     def handle_unknown(self):
         """
         Strategy for handling unknown words.
@@ -93,38 +93,42 @@ class BaseHMM:
         for i, tag in enumerate(self.tags):
             self.tags[tag].index = i
 
-    
     def calculate_probabilities(self, train_data: List[str]):
         """
         Calculates the emission probability and
         transition probability from the train data.
         """
 
-        self.emission_prob = np.zeros((len(self.vocab), len(self.tags)))
-        self.transition_prob = np.zeros((len(self.tags), len(self.tags)))
+        self.emission_prob = np.zeros((len(self.vocab), self.num_tags))
+        self.transition_prob = np.zeros((self.num_tags, self.num_tags))
 
         for line in train_data:
-            prev_tag = '<s>'
+            prev_tag = "<s>"
             line = line.strip().lower()
             if line:
                 word_tags = line.split()
                 for word_tag in word_tags:
                     word, tag = self.get_word_tag(word_tag)
-                    self.transition_prob[self.tags[tag].index][self.tags[prev_tag].index] += 1
+                    self.transition_prob[self.tags[tag].index][
+                        self.tags[prev_tag].index
+                    ] += 1
                     if word in self.vocab:
-                        self.emission_prob[self.vocab[word].index][self.tags[tag].index] += 1
+                        self.emission_prob[self.vocab[word].index][
+                            self.tags[tag].index
+                        ] += 1
                     else:
-                        self.emission_prob[self.vocab['<unk>'].index][self.tags[tag].index] += 1
+                        self.emission_prob[self.vocab["<unk>"].index][
+                            self.tags[tag].index
+                        ] += 1
                     prev_tag = tag
 
         tag_count = np.array([tag.count for tag in self.tags.values()])
 
         # Now divide both the self.emission_prob and the
-        # self.transition_prob with the tag_counts to 
+        # self.transition_prob with the tag_counts to
         # convert the numbers into probabilities
-        self.emission_prob = self.emission_prob/tag_count
-        self.transition_prob = self.transition_prob/tag_count
-
+        self.emission_prob = self.emission_prob / tag_count
+        self.transition_prob = self.transition_prob / tag_count
 
     def train(self, train_data: List[str]):
         self.extract_vocab_and_tags(train_data)
@@ -132,28 +136,27 @@ class BaseHMM:
         self._generate_index_map()
         self.calculate_probabilities(train_data)
 
-
-
-    def access_model(self, test, verbose=True):
+    def access_model(self, test_data: List[str], verbose=True):
         """
-        Accesses the performance of the model 
+        Accesses the performance of the model
         on test data.
         """
 
-        test_sents, test_tags = [], []
+        test_sentences, test_tags = [], []
 
-        for line in test:
-            sents, tags = [], []
-            for word_tag in line.lower().split():
-                tag = word_tag.split('/')[-1]
-                word = "/".join(word_tag.split('/')[:-1])
-                sents.append(word)
-                tags.append(tag)
-            test_sents.append(" ".join(sents))
-            test_tags.append(tags)
+        for line in test_data:
+            line = line.strip().lower()
+            if line:
+                words, tags = [], []
+                for word_tag in line.split():
+                    word, tag = self.get_word_tag(word_tag)
+                    words.append(word)
+                    tags.append(tag)
+                test_sentences.append(" ".join(words))
+                test_tags.append(tags)
 
         pred_sent_tags = []
-        for sent in tqdm(test_sents, disable=not verbose):
+        for sent in tqdm(test_sentences, disable=not verbose):
             word_tag = self.predict(sent)
             pred_sent_tags.append(word_tag)
 
@@ -164,28 +167,14 @@ class BaseHMM:
                     correct += 1
                 total += 1
 
-        accu = (correct/total)*100
-        return accu
+        accuracy = (correct / total) * 100
+        return accuracy
 
-                
-            
-
-
-    def predict(self,sent):
+    @abstractmethod
+    def predict(self, sent):
         """
         Given a sentence returns the tags predicted
         by the model. The sentence is expected to
         be a string without any tag information.
         """
         pass
-
-
-
-if __name__ == '__main__':
-
-    from utils import train_test_split
-
-    train_set, test_set =  train_test_split("./data/brown.txt")
-
-    hmm = BaseHMM()
-    hmm.train(train_set)
