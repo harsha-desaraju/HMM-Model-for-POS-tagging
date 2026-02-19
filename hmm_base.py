@@ -1,14 +1,13 @@
 import numpy as np
 from tqdm import tqdm
 from typing import List
-from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field
 
 
 class Word(BaseModel):
     text: str
     count: int
-    probability: float = Field(..., ge=0, lt=1)
+    # probability: float = Field(..., ge=0, lt=1)
     index: int = None
 
 
@@ -19,19 +18,22 @@ class Tag(BaseModel):
     index: int = None
 
 
-class BaseHMM(ABC):
+class HMM:
     """
     A base class for implementing Hidden Markov Models
     with different strategies for handling unknown words
     for POS tagging.
     """
 
-    def __init__(self):
+    def __init__(self, min_freq: int = 2):
         self.vocab = {}
         self.tags = {}
+        self.inv_tag_map = {}
         self.emission_prob = None
         self.transition_prob = None
         self.num_tags = None
+        self.min_freq = min_freq
+        assert self.min_freq >= 2, "The minimum frequency should be at least 2 to treat rest of the words as unknown words."
 
     @staticmethod
     def get_word_tag(word_tag: str):
@@ -55,7 +57,7 @@ class BaseHMM(ABC):
                     if word in self.vocab:
                         self.vocab[word].count += 1
                     else:
-                        self.vocab[word] = Word(text=word, count=1, probability=0)
+                        self.vocab[word] = Word(text=word, count=1)
 
                     if tag in self.tags:
                         self.tags[tag].count += 1
@@ -74,14 +76,27 @@ class BaseHMM(ABC):
 
         self.num_tags = len(self.tags)
 
-    @abstractmethod
     def handle_unknown(self):
         """
         Strategy for handling unknown words.
-        This class is the main method differentiating
-        the subclasses.
+        The words with frequency less than min_freq
+        become unknown words, which can be used to calculate the
+        emission probabilities
         """
-        pass
+        unknown_count = 0
+        unknown_words = []
+        for word in self.vocab.values():
+            if word.count < self.min_freq:
+                unknown_words.append(word.text)
+                unknown_count += word.count
+
+        # Remove the unknown words from the vocabulary
+        for word in unknown_words:
+            self.vocab.pop(word)
+
+        # Add <unk> tag to the vocabulary
+        self.vocab["<unk>"] = Word(text="<unk>", count=unknown_count)
+
 
     def _generate_index_map(self):
         """
@@ -92,6 +107,7 @@ class BaseHMM(ABC):
             self.vocab[word].index = i
         for i, tag in enumerate(self.tags):
             self.tags[tag].index = i
+            self.inv_tag_map[i] = tag
 
     def calculate_probabilities(self, train_data: List[str]):
         """
@@ -170,11 +186,62 @@ class BaseHMM(ABC):
         accuracy = (correct / total) * 100
         return accuracy
 
-    @abstractmethod
-    def predict(self, sent):
+    def predict(self, sentence):
         """
         Given a sentence returns the tags predicted
         by the model. The sentence is expected to
         be a string without any tag information.
         """
-        pass
+        tokens = sentence.lower().split()
+
+        probs = np.zeros((len(tokens), self.num_tags))
+        paths = np.full((len(tokens), self.num_tags), -1)
+
+        for col in range(len(probs[0])):
+            if tokens[0] in self.vocab:
+                probs[0][col] = self.transition_prob[col][self.tags['<s>'].index] \
+                                * self.emission_prob[self.vocab[tokens[0]].index][col]
+            else:
+                probs[0][col] = self.transition_prob[col][self.tags['<s>'].index] \
+                                * self.tags[self.inv_tag_map[col]].probability
+
+        for row in range(1, len(probs)):
+            for tag_id in range(self.num_tags):
+                if tokens[row] in self.vocab:
+                    em_p = self.emission_prob[self.vocab[tokens[row]].index][tag_id]
+                else:
+                    em_p = self.tags[self.inv_tag_map[tag_id]].probability
+                if em_p != 0:
+                    temp_probs = []
+                    for prev_tag_id in range(self.num_tags):
+                        prob = probs[row - 1][prev_tag_id] * self.transition_prob[tag_id][prev_tag_id] * em_p
+                        temp_probs.append(prob)
+                    probs[row][tag_id] = max(temp_probs)
+                    paths[row][tag_id] = temp_probs.index(max(temp_probs))
+                else:
+                    probs[row][tag_id] = 0
+                    paths[row][tag_id] = 0
+
+        pred_tags = []
+        ind = np.argmax(probs[-1])
+        for i in range(len(tokens) - 1, -1, -1):
+            pred_tags.append([tokens[i], self.inv_tag_map[ind]])
+            ind = paths[i][ind]
+
+        pred_tags = pred_tags[::-1]
+
+        return pred_tags
+
+
+if __name__ == '__main__':
+
+    from utils import train_test_split
+
+    train_set, test_set = train_test_split(file_path="./data/brown.txt")
+
+    hmm = HMM(min_freq=2)
+    hmm.train(train_set)
+    accu = hmm.evaluate_model(test_set[:10])
+    print(accu)
+    preds = hmm.predict(sentence="The horse raced past the barn fell")
+    print(preds)
